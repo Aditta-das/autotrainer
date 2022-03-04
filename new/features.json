@@ -1,0 +1,1 @@
+{"features": ["mean_radius", "mean_texture", "mean_perimeter", "mean_area", "mean_smoothness"], "label": "diagnosis", "path": "/home/aditta/Desktop/trainme", "output_path": "new", "model_name": "xgb", "random_state": 42, "shuffle": true, "test_size": 0.3, "no_of_fold": 5, "use_gpu": false, "problem_type": "binary_classification"}

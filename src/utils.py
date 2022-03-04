@@ -1,11 +1,24 @@
 import os
+import json
+from lightgbm import early_stopping
 from tabulate import tabulate
+from functools import partial
 from IPython.display import display
 from tqdm.auto import tqdm
 import numpy as np
-from logger import logger  
+import xgboost as xgb
+from .logger import logger  
 from sklearn.model_selection import train_test_split
+from sklearn.model_selection import KFold, StratifiedKFold
+
+from src.params import get_params
 from .cfg import CFG
+from .models import fetch_model, Valid_Metrics
+import pandas as pd 
+import optuna
+
+optuna.logging.set_verbosity(optuna.logging.INFO)
+
 
 def auto_output_folder(filename):
     base_path = os.path.dirname(os.getcwd())
@@ -17,10 +30,9 @@ def auto_output_folder(filename):
         logger.info("Folder already exists")
 
 
-
 def reduce_mem_usage(df):
-    """ iterate through all the columns of a dataframe and modify the data type
-        to reduce memory usage.        
+    """ 
+    iterate through all the columns of a dataframe and modify the data type to reduce memory usage.        
     """
     start_mem = df.memory_usage().sum() / 1024**2
     logger.info('Memory usage of dataframe is {:.2f} MB'.format(start_mem))
@@ -58,9 +70,13 @@ def reduce_mem_usage(df):
 
 
 def null_checker(data):
-	for col in data.columns:
-		if data[col].isnull().sum() > 0:
-			display(f"null col: {col} >> total null : {data[col].isnull().sum()}")
+    for col in data.columns:
+        if data[col].isnull().sum() > 0:
+            display(f"null col: {col} >> total null : {data[col].isnull().sum()}")
+            data[col] = data[col].replace(
+                np.NaN, data[col].mean()
+            )
+            display(f"after fillup null: {col} >> total null : {data[col].isnull().sum()}")
 		
 
 def label_encode():
@@ -69,10 +85,96 @@ def label_encode():
 def categorical_data():
 	pass
 
-def normal_data_split(df, label):
+def normal_data_split(df, label, random_state, shuffle, test_size):
     X = df.drop(label, axis=1)
     y = df[label]
     xtrain, xtest, ytrain, ytest = train_test_split(
-        X, y, random_state=CFG.random_state, shuffle=CFG.shuffle, test_size=CFG.test_size
+        X, y, 
+        random_state=random_state, 
+        shuffle=shuffle, 
+        test_size=test_size
     )
     return xtrain, xtest, ytrain, ytest
+
+# Function for mean value of metrics
+def mean_dict(list_metrics):
+    dict_mean_val = {}
+    for key in list_metrics[0].keys():
+        dict_mean_val[key] = sum(d[key] for d in list_metrics) / len(dict_mean_val)
+    return dict_mean_val
+
+
+def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
+    
+    scores = []
+    clf_model, use_predict_proba, direction, eval_metric = fetch_model(model_config)
+
+    metrics = Valid_Metrics(model_config)
+
+    if model_config["model_name"] == "xgb":
+        params = get_params(trial, model_config)
+    elif model_config["model_name"] == "lgb":
+        params = get_params(trial, model_config)
+    
+    early_stopping_rounds = params["early_stopping_rounds"]
+    del params["early_stopping_rounds"]
+
+    for fold in range(model_config["no_of_fold"]):
+        train_feather = pd.read_feather(os.path.join(model_config["path"], f"{model_config['output_path']}/train_fold_{fold}.feather"))
+        test_feather = pd.read_feather(os.path.join(model_config["path"], f"{model_config['output_path']}/test_fold_{fold}.feather"))
+        xtrain = train_feather[model_config["features"]]
+        xtest = test_feather[model_config["features"]]
+
+        ytrain = train_feather[model_config["label"]].values
+        ytest = test_feather[model_config["label"]].values
+
+        model = clf_model(
+            **params,
+            use_label_encoder=False,
+            eval_metric=eval_metric,
+            random_state=model_config["random_state"]
+        )
+
+        model.fit(
+            xtrain,
+            ytrain,
+            verbose=False, 
+            early_stopping_rounds=early_stopping_rounds,
+            eval_set=[(xtest, ytest)]
+        )
+        if use_predict_proba:
+            ypred = model.predict_proba(xtest)
+        else:
+            ypred = model.predict(xtest)
+        
+        # metrics calculation
+        '''
+        models.py : we have to create a function calculate, that will measure model performance
+        '''
+        metrics_dict = metrics.calculate(ytest, ypred) # TODO : write this function
+        scores.append(metrics_dict)
+
+    # create a function that take mean separately take all values from list and print the eval_metrics
+    dict_mean = mean_dict(scores)
+    logger.info(f"Metrics: {dict_mean}")
+    return dict_mean[eval_metric]
+
+
+def train_model(model_config):
+    clf_model, use_predict_proba, direction, eval_metric = fetch_model(model_config)
+    optimize_func = partial(
+        optimize,
+        clf_model = clf_model,
+        model_config = model_config,
+        eval_metric = eval_metric,
+        use_predict_proba = use_predict_proba
+    )
+    db_path = os.path.join(model_config['path'], f"{model_config['output_path']}/params.db")
+    study = optuna.create_study(
+        direction="minimize",
+        study_name=model_config["study_name"],
+        storage=f"sqlite:///{db_path}",
+        load_if_exists=True
+    )
+    study.optimize(optimize_func, n_trials=10)
+    return study.best_params
