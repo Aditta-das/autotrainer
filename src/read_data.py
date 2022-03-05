@@ -245,9 +245,6 @@ class ReadFile:
 		predict_model(model_config, best_params=bp)
 		
 
-	def prediction(self):
-		pass
-
 	def kaggle_submission(self):
 		pass
 

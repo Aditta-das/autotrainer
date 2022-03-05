@@ -1,6 +1,7 @@
 import xgboost as xgb
 import lightgbm as lgb
 from sklearn import metrics as skmet
+from sklearn.ensemble import ExtraTreesClassifier
 
 def fetch_model(model_config):
     if model_config["problem_type"] == "binary_classification" or model_config["problem_type"] == "multi_classification":
@@ -11,6 +12,11 @@ def fetch_model(model_config):
             eval_metric = "logloss"
         elif model_config["model_name"] == "lgb":
             clf_model = lgb.LGBMClassifier
+            use_predict_proba = True
+            direction = "minimize"
+            eval_metric = "logloss"
+        elif model_config["model_name"] == "ExtraTree":
+            clf_model = ExtraTreesClassifier
             use_predict_proba = True
             direction = "minimize"
             eval_metric = "logloss"

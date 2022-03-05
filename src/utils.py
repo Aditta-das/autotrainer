@@ -128,12 +128,20 @@ def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
         ytrain = train_feather[model_config["label"]].values
         ytest = test_feather[model_config["label"]].values
 
-        model = clf_model(
-            **params,
-            use_label_encoder=False,
-            eval_metric=eval_metric,
-            random_state=model_config["random_state"]
-        )
+
+        if model_config["model_name"] == "xgb":
+            model = clf_model(
+                **params,
+                use_label_encoder=False,
+                eval_metric=eval_metric,
+                random_state=model_config["random_state"]
+            )
+            
+        elif model_config["model_name"] == "lgb":
+            model = clf_model(
+                **params,
+                random_state=model_config["random_state"]
+            )
 
         model.fit(
             xtrain,
@@ -142,6 +150,7 @@ def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
             early_stopping_rounds=early_stopping_rounds,
             eval_set=[(xtest, ytest)]
         )
+        
         if use_predict_proba:
             ypred = model.predict_proba(xtest)
         else:
