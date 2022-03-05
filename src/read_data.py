@@ -185,6 +185,7 @@ class ReadFile:
 				'problem_type': self.task_type,
 				'study_name': self.study_name,
 				'n_trails': self.n_trails,
+				'compare': self.compare
 			}
 			with open(os.path.join(f"{os.path.join(os.path.dirname(os.getcwd()), self.output_path)}/features.json"), "w") as file:
 				json.dump(json_features, file)

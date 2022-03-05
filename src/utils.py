@@ -10,6 +10,8 @@ import xgboost as xgb
 from .logger import logger  
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold, StratifiedKFold
+from sklearn.svm import SVC
+from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 
 from src.params import get_params
 from .cfg import CFG
@@ -104,6 +106,8 @@ def dict_mean(dict_list):
     return mean_dict
 
 
+
+
 def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
     
     scores = []
@@ -111,11 +115,8 @@ def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
 
     metrics = Valid_Metrics(model_config)
 
-    if model_config["model_name"] == "xgb":
-        params = get_params(trial, model_config)
-    elif model_config["model_name"] == "lgb":
-        params = get_params(trial, model_config)
-    
+    params = get_params(trial, model_config)
+
     early_stopping_rounds = params["early_stopping_rounds"]
     del params["early_stopping_rounds"]
 
@@ -128,7 +129,6 @@ def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
         ytrain = train_feather[model_config["label"]].values
         ytest = test_feather[model_config["label"]].values
 
-
         if model_config["model_name"] == "xgb":
             model = clf_model(
                 **params,
@@ -136,8 +136,14 @@ def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
                 eval_metric=eval_metric,
                 random_state=model_config["random_state"]
             )
-            
+
         elif model_config["model_name"] == "lgb":
+            model = clf_model(
+                **params,
+                random_state=model_config["random_state"]
+            )
+        
+        elif model_config["model_name"] == "ExtraTree":
             model = clf_model(
                 **params,
                 random_state=model_config["random_state"]
@@ -171,13 +177,22 @@ def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
 
 def train_model(model_config):
     clf_model, use_predict_proba, direction, eval_metric = fetch_model(model_config)
-    optimize_func = partial(
-        optimize,
-        clf_model = clf_model,
-        model_config = model_config,
-        eval_metric = eval_metric,
-        use_predict_proba = use_predict_proba
-    )
+    if model_config["compare"]:
+        optimize_func = partial(
+            optimize,
+            clf_model = clf_model,
+            model_config = model_config,
+            eval_metric = eval_metric,
+            use_predict_proba = use_predict_proba
+        )
+    else:
+        optimize_func = partial(
+            optimize,
+            clf_model = clf_model,
+            model_config = model_config,
+            eval_metric = eval_metric,
+            use_predict_proba = use_predict_proba
+        )
     db_path = os.path.join(model_config['path'], f"{model_config['output_path']}/params.db")
     study = optuna.create_study(
         direction="minimize",
@@ -215,12 +230,25 @@ def predict_model(model_config, best_params):
             test_file = pd.read_feather(f'{os.path.join(model_config["path"], model_config["output_path"])}/test_file.feather')
             X_test = test_file[model_config["features"]]
 
-        model = clf_model(
-            **best_params,
-            use_label_encoder=False,
-            eval_metric=eval_metric,
-            random_state=model_config["random_state"]
-        )
+        if model_config["model_name"] == "xgb":
+            model = clf_model(
+                **best_params,
+                use_label_encoder=False,
+                eval_metric=eval_metric,
+                random_state=model_config["random_state"]
+            )
+
+        elif model_config["model_name"] == "lgb":
+            model = clf_model(
+                **best_params,
+                random_state=model_config["random_state"]
+            )
+        
+        elif model_config["model_name"] == "ExtraTree":
+            model = clf_model(
+                **best_params,
+                random_state=model_config["random_state"]
+            )
 
         model.fit(
             xtrain,
