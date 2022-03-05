@@ -97,11 +97,11 @@ def normal_data_split(df, label, random_state, shuffle, test_size):
     return xtrain, xtest, ytrain, ytest
 
 # Function for mean value of metrics
-def mean_dict(list_metrics):
-    dict_mean_val = {}
-    for key in list_metrics[0].keys():
-        dict_mean_val[key] = sum(d[key] for d in list_metrics) / len(dict_mean_val)
-    return dict_mean_val
+def dict_mean(dict_list):
+    mean_dict = {}
+    for key in dict_list[0].keys():
+        mean_dict[key] = sum(d[key] for d in dict_list) / len(dict_list)
+    return mean_dict
 
 
 def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
@@ -155,9 +155,9 @@ def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
         scores.append(metrics_dict)
 
     # create a function that take mean separately take all values from list and print the eval_metrics
-    dict_mean = mean_dict(scores)
-    logger.info(f"Metrics: {dict_mean}")
-    return dict_mean[eval_metric]
+    mean_metrics = dict_mean(scores)
+    logger.info(f"Metrics: {mean_metrics}")
+    return mean_metrics[eval_metric]
 
 
 def train_model(model_config):
@@ -178,3 +178,9 @@ def train_model(model_config):
     )
     study.optimize(optimize_func, n_trials=10)
     return study.best_params
+
+'''
+prediction test => fold by fold prediction using there best params
+'''
+def predict_model():
+    pass

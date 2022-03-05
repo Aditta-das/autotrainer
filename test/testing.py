@@ -11,7 +11,8 @@ a = ReadFile(
 	compare=False,
 	fold="skfold",
 	model_name="xgb",
-	output_path="new"
+	output_path="new",
+	study_name="new_train"
 )
 
 print(a.report())

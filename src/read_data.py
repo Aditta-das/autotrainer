@@ -179,7 +179,8 @@ class ReadFile:
 				'test_size': self.test_size,
 				'no_of_fold': self.no_of_fold,
 				'use_gpu': self.use_gpu,
-				'problem_type': self.task_type
+				'problem_type': self.task_type,
+				'study_name': self.study_name
 			}
 			with open(os.path.join(f"{os.path.join(os.path.dirname(os.getcwd()), self.output_path)}/features.json"), "w") as file:
 				json.dump(json_features, file)
