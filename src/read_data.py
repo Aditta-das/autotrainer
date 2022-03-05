@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 from tabulate import tabulate
 from .logger import logger
 from IPython.display import display
-from .utils import auto_output_folder, normal_data_split, null_checker, reduce_mem_usage, train_model
+from .utils import auto_output_folder, normal_data_split, null_checker, reduce_mem_usage, train_model, predict_model
 from .visualize import *
 from .params import without_compare
 
@@ -58,7 +58,8 @@ class ReadFile:
 		model_name="RandomForest",
 		fill_value=None,
 		output_path="output",
-		study_name="train"
+		study_name="train",
+		n_trails=10,
 	):
 		self.train_path = train_path
 		self.test_path = test_path
@@ -78,6 +79,7 @@ class ReadFile:
 			self.model_name = model_name
 		self.output_path = output_path
 		self.study_name = study_name
+		self.n_trails = n_trails
 
 	def load_path(self):
 		auto_output_folder(self.output_path)
@@ -88,7 +90,7 @@ class ReadFile:
 		if self.test_path is not None:
 			test_file = pd.read_csv(self.test_path)
 			test_file = reduce_mem_usage(test_file)
-			test_file.to_csv(f"{os.path.join(os.path.dirname(os.getcwd()), self.output_path)}/reduced_dataset_test.csv", index=False)
+			test_file.to_feather(f"{os.path.join(os.path.dirname(os.getcwd()), self.output_path)}/reduced_dataset_test.feather", index=False)
 		
 		logger.info(f"Output folder : {self.output_path} created")
 		if self.drop_col is not None:
@@ -173,6 +175,7 @@ class ReadFile:
 				'label': self.label,
 				'path': os.path.dirname(os.getcwd()),
 				'output_path': self.output_path,
+				'test_path': self.test_path,
 				'model_name': self.model_name,
 				'random_state': self.random_state,
 				'shuffle': self.shuffle,
@@ -180,7 +183,8 @@ class ReadFile:
 				'no_of_fold': self.no_of_fold,
 				'use_gpu': self.use_gpu,
 				'problem_type': self.task_type,
-				'study_name': self.study_name
+				'study_name': self.study_name,
+				'n_trails': self.n_trails,
 			}
 			with open(os.path.join(f"{os.path.join(os.path.dirname(os.getcwd()), self.output_path)}/features.json"), "w") as file:
 				json.dump(json_features, file)
@@ -238,7 +242,8 @@ class ReadFile:
 		with open(f"{os.path.join(os.path.dirname(os.getcwd()), self.output_path)}/features.json") as f:
 			model_config = json.load(f)
 			bp = train_model(model_config)
-		return bp
+		predict_model(model_config, best_params=bp)
+		
 
 	def prediction(self):
 		pass

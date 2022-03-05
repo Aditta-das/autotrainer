@@ -27,8 +27,8 @@ def auto_output_folder(filename):
         logger.info(f"Create folder name : {filename} folder")
         os.mkdir(directory)
     else:
-        logger.info("Folder already exists")
-
+        logger.info("Folder already exists, create new one")
+        raise Exception("Folder already exists, specify new one")
 
 def reduce_mem_usage(df):
     """ 
@@ -176,11 +176,66 @@ def train_model(model_config):
         storage=f"sqlite:///{db_path}",
         load_if_exists=True
     )
-    study.optimize(optimize_func, n_trials=10)
+    study.optimize(optimize_func, n_trials=model_config["n_trails"])
     return study.best_params
 
 '''
 prediction test => fold by fold prediction using there best params
 '''
-def predict_model():
-    pass
+def predict_model(model_config, best_params):
+    scores = []
+    test_prediction = []
+    clf_model, use_predict_proba, direction, eval_metric = fetch_model(model_config)
+
+    metrics = Valid_Metrics(model_config)
+    
+    early_stopping_rounds = best_params["early_stopping_rounds"]
+    del best_params["early_stopping_rounds"]
+
+    for fold in range(model_config["no_of_fold"]):
+        logger.info(f">> Train and predict for fold : {fold}")
+        train_feather = pd.read_feather(os.path.join(model_config["path"], f"{model_config['output_path']}/train_fold_{fold}.feather"))
+        test_feather = pd.read_feather(os.path.join(model_config["path"], f"{model_config['output_path']}/test_fold_{fold}.feather"))
+        xtrain = train_feather[model_config["features"]]
+        xtest = test_feather[model_config["features"]]
+
+        ytrain = train_feather[model_config["label"]].values
+        ytest = test_feather[model_config["label"]].values
+
+        if model_config["test_path"] is not None:
+            test_file = pd.read_feather(f'{os.path.join(model_config["path"], model_config["output_path"])}/test_file.feather')
+            X_test = test_file[model_config["features"]]
+
+        model = clf_model(
+            **best_params,
+            use_label_encoder=False,
+            eval_metric=eval_metric,
+            random_state=model_config["random_state"]
+        )
+
+        model.fit(
+            xtrain,
+            ytrain,
+            verbose=False, 
+            early_stopping_rounds=early_stopping_rounds,
+            eval_set=[(xtest, ytest)]
+        )
+        if use_predict_proba:
+            ypred = model.predict_proba(xtest)
+        else:
+            ypred = model.predict(xtest)
+            if model_config["test_path"] is not None:
+                logger.info(">> Preiction on test file")
+                test_pred = model.predict(X_test)
+                test_prediction.append(test_pred)
+
+        # metrics calculation
+        '''
+        models.py : we have to create a function calculate, that will measure model performance
+        '''
+        metrics_dict = metrics.calculate(ytest, ypred) # TODO : write this function
+        scores.append(metrics_dict)
+        logger.info(f">> Fold {fold} done")
+    # create a function that take mean separately take all values from list and print the eval_metrics
+    mean_metrics = dict_mean(scores)
+    logger.info(f"Metrics: {mean_metrics}")
