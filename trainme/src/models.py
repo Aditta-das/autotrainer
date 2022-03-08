@@ -1,5 +1,6 @@
 import xgboost as xgb
 import lightgbm as lgb
+import numpy as np
 from sklearn import metrics as skmet
 from sklearn.ensemble import ExtraTreesClassifier
 
@@ -23,7 +24,7 @@ def fetch_model(model_config):
     return clf_model, use_predict_proba, direction, eval_metric
 
 
-class Valid_Metrics:
+class Metrics:
     def __init__(self, model_config):
         self.problem = model_config["problem_type"]
         if self.problem == "binary_classification":
@@ -52,6 +53,11 @@ class Valid_Metrics:
                     metrics[met_name] = met_func(ytest, ypred)
                 else:
                     metrics[met_name] = met_func(ytest, ypred[:, 1] >= 0.5)
+            elif self.problem == "multi_classification":
+                if met_name == "accuracy":
+                    metrics[met_name] = met_func(ytest, np.argmax(ypred, axis=1))
+                else:
+                    metrics[met_name] = met_func(ytest, ypred)
         
         return metrics
 

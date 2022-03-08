@@ -16,7 +16,7 @@ from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 
 from src.params import get_params
 from .cfg import CFG
-from .models import fetch_model, Valid_Metrics
+from .models import fetch_model, Metrics
 import pandas as pd 
 import optuna
 
@@ -110,7 +110,7 @@ def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
     scores = []
     clf_model, use_predict_proba, direction, eval_metric = fetch_model(model_config)
 
-    metrics = Valid_Metrics(model_config)
+    metrics = Metrics(model_config)
 
     params = get_params(trial, model_config)
 
@@ -199,7 +199,7 @@ def predict_model(model_config, best_params):
     test_prediction = []
     clf_model, use_predict_proba, direction, eval_metric = fetch_model(model_config)
 
-    metrics = Valid_Metrics(model_config)
+    metrics = Metrics(model_config)
     
     early_stopping_rounds = best_params["early_stopping_rounds"]
     del best_params["early_stopping_rounds"]
