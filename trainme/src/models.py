@@ -38,9 +38,9 @@ class Metrics:
             }
         elif self.problem == "multi_classification":
             self.valid_metrics = {
-                "logloss": skmet.log_loss,
+                # "logloss": skmet.log_loss,
                 "accuracy": skmet.accuracy_score,
-                "mlogloss": skmet.log_loss,
+                # "mlogloss": skmet.log_loss,
             }
 
     def calculate(self, ytest, ypred):
@@ -56,8 +56,8 @@ class Metrics:
             elif self.problem == "multi_classification":
                 if met_name == "accuracy":
                     metrics[met_name] = met_func(ytest, np.argmax(ypred, axis=1))
-                else:
-                    metrics[met_name] = met_func(ytest, ypred)
+                # else:
+                #     metrics[met_name] = met_func(ytest, ypred)
         
         return metrics
 
