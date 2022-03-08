@@ -10,19 +10,14 @@ read_path:
 4. feather
 5. sqlite3
 '''
-from codecs import ignore_errors
-from doctest import testfile
 import os
 import json
-from pyexpat import features
-from numpy import disp
-from tqdm import tqdm
 import pandas as pd
 import matplotlib.pyplot as plt
 from tabulate import tabulate
 from .logger import logger
 from IPython.display import display
-from .utils import auto_output_folder, normal_data_split, null_checker, reduce_mem_usage, train_model, predict_model
+from .utils import label_encode, normal_data_split, null_checker, reduce_mem_usage, train_model, predict_model
 from .visualize import *
 from .params import without_compare
 
@@ -50,16 +45,18 @@ class ReadFile:
 		no_of_fold=5,
 		shuffle=True,
 		test_size=0.3,
+		n_trails=10,
 		use_gpu=False,
+		fill_value=None,
+		compare=True,
 		task_type="binary_classification",
 		scaler="standard",
 		fold="kfold",
-		compare=True,
 		model_name="RandomForest",
-		fill_value=None,
 		output_path="output",
 		study_name="train",
-		n_trails=10,
+		store_file=None,
+		direction="minimize"
 	):
 		self.train_path = train_path
 		self.test_path = test_path
@@ -75,14 +72,27 @@ class ReadFile:
 		self.task_type = task_type
 		self.fold = fold
 		self.compare = compare
-		if self.compare is False:
-			self.model_name = model_name
 		self.output_path = output_path
 		self.study_name = study_name
 		self.n_trails = n_trails
+		self.store_file = store_file
+		self.direction = direction
+		if self.compare is False:
+			self.model_name = model_name
+
+	def auto_output_folder(self):
+		# base_path = os.path.dirname(os.getcwd())
+		directory = os.path.join(self.output_path, self.store_file)
+		print(directory)
+		if not os.path.exists(directory):
+			logger.info(f"Create folder name : {self.store_file} folder")
+			os.mkdir(directory)
+		else:
+			logger.info("Folder already exists, create new one")
+			raise Exception("Folder already exists, specify new one")
 
 	def load_path(self):
-		auto_output_folder(self.output_path)
+		self.auto_output_folder()
 
 		train_file = pd.read_csv(self.train_path)
 		train_file = reduce_mem_usage(train_file)
@@ -90,7 +100,7 @@ class ReadFile:
 		if self.test_path is not None:
 			test_file = pd.read_csv(self.test_path)
 			test_file = reduce_mem_usage(test_file)
-			test_file.to_feather(f"{os.path.join(os.path.dirname(os.getcwd()), self.output_path)}/reduced_dataset_test.feather", index=False)
+			test_file.to_feather(f"{os.path.join(self.output_path, self.store_file)}/reduced_dataset_test.feather", index=False)
 		
 		logger.info(f"Output folder : {self.output_path} created")
 		if self.drop_col is not None:
@@ -118,7 +128,7 @@ class ReadFile:
 			)
 		else: pass # for regression
 
-		train_file.to_csv(f"{os.path.join(os.path.dirname(os.getcwd()), self.output_path)}/reduced_dataset.csv", index=False)
+		train_file.to_csv(f"{os.path.join(self.output_path, self.store_file)}/reduced_dataset.csv", index=False)
 		
 		logger.info("Datset created and saved")	
 
@@ -126,13 +136,16 @@ class ReadFile:
 		pass
 
 	def _process_data(self):
-		path = os.path.join(f"{os.path.join(os.path.dirname(os.getcwd()), self.output_path)}")
+		path = os.path.join(f"{os.path.join(self.output_path, self.store_file)}")
 		df = pd.read_csv(os.path.join(f"{path}/reduced_dataset.csv"))
+
+		if df[self.label].dtype == "object":
+			label_encode(df, self.label, is_test=None)
 		
 		if self.test_path is not None:
 			test_file = pd.read_csv(os.path.join(f"{path}/reduced_dataset_test.csv"))
-			test_file.to_feather(os.path.join(f"{os.path.join(os.path.dirname(os.getcwd()), self.output_path)}/test_file.feather"))
-		
+			test_file.to_feather(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/test_file.feather"))
+
 		# fold system
 		if self.fold == "kfold":
 			df["kfold"] = -1
@@ -175,6 +188,7 @@ class ReadFile:
 				'label': self.label,
 				'path': os.path.dirname(os.getcwd()),
 				'output_path': self.output_path,
+				'store_file': self.store_file,
 				'test_path': self.test_path,
 				'model_name': self.model_name,
 				'random_state': self.random_state,
@@ -185,9 +199,10 @@ class ReadFile:
 				'problem_type': self.task_type,
 				'study_name': self.study_name,
 				'n_trails': self.n_trails,
-				'compare': self.compare
+				'compare': self.compare,
+				'direction': self.direction
 			}
-			with open(os.path.join(f"{os.path.join(os.path.dirname(os.getcwd()), self.output_path)}/features.json"), "w") as file:
+			with open(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/features.json"), "w") as file:
 				json.dump(json_features, file)
 		'''
 		1. if kfold or stratified then we will save
@@ -200,8 +215,8 @@ class ReadFile:
 				test_fold = df[df.kfold == fold].reset_index(drop=True)
 
 				# save fold as feather file
-				train_fold.to_feather(os.path.join(f"{os.path.join(os.path.dirname(os.getcwd()), self.output_path)}/train_fold_{fold}.feather"))
-				test_fold.to_feather(os.path.join(f"{os.path.join(os.path.dirname(os.getcwd()), self.output_path)}/test_fold_{fold}.feather"))
+				train_fold.to_feather(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/train_fold_{fold}.feather"))
+				test_fold.to_feather(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/test_fold_{fold}.feather"))
 
 				logger.info(f">>> train fold {fold} save")
 				logger.info(f">>> test fold {fold} save")
@@ -240,7 +255,7 @@ class ReadFile:
 	
 	def train(self):
 		self._process_data()
-		with open(f"{os.path.join(os.path.dirname(os.getcwd()), self.output_path)}/features.json") as f:
+		with open(f"{os.path.join(os.path.join(self.output_path, self.store_file))}/features.json") as f:
 			model_config = json.load(f)
 			bp = train_model(model_config)
 		predict_model(model_config, best_params=bp)

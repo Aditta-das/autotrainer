@@ -8,6 +8,7 @@ from tqdm.auto import tqdm
 import numpy as np
 import xgboost as xgb
 from .logger import logger  
+from sklearn.preprocessing import LabelEncoder, LabelBinarizer
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.svm import SVC
@@ -22,15 +23,7 @@ import optuna
 optuna.logging.set_verbosity(optuna.logging.INFO)
 
 
-def auto_output_folder(filename):
-    base_path = os.path.dirname(os.getcwd())
-    directory = os.path.join(base_path, filename)
-    if not os.path.exists(directory):
-        logger.info(f"Create folder name : {filename} folder")
-        os.mkdir(directory)
-    else:
-        logger.info("Folder already exists, create new one")
-        raise Exception("Folder already exists, specify new one")
+
 
 def reduce_mem_usage(df):
     """ 
@@ -81,8 +74,12 @@ def null_checker(data):
             display(f"after fillup null: {col} >> total null : {data[col].isnull().sum()}")
 		
 
-def label_encode():
-	pass
+def label_encode(df, target, is_test=None):
+    lbl_encoder = LabelEncoder()
+    df[target] = lbl_encoder.fit_transform(df[target])
+    # if is_train:
+    #     df[target] = lbl_encoder.transform(df[target])
+
 
 def categorical_data():
 	pass
@@ -121,8 +118,8 @@ def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
     del params["early_stopping_rounds"]
 
     for fold in range(model_config["no_of_fold"]):
-        train_feather = pd.read_feather(os.path.join(model_config["path"], f"{model_config['output_path']}/train_fold_{fold}.feather"))
-        test_feather = pd.read_feather(os.path.join(model_config["path"], f"{model_config['output_path']}/test_fold_{fold}.feather"))
+        train_feather = pd.read_feather(os.path.join(model_config["output_path"], f"{model_config['store_file']}/train_fold_{fold}.feather"))
+        test_feather = pd.read_feather(os.path.join(model_config["output_path"], f"{model_config['store_file']}/test_fold_{fold}.feather"))
         xtrain = train_feather[model_config["features"]]
         xtest = test_feather[model_config["features"]]
 
@@ -177,25 +174,16 @@ def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
 
 def train_model(model_config):
     clf_model, use_predict_proba, direction, eval_metric = fetch_model(model_config)
-    if model_config["compare"]:
-        optimize_func = partial(
-            optimize,
-            clf_model = clf_model,
-            model_config = model_config,
-            eval_metric = eval_metric,
-            use_predict_proba = use_predict_proba
-        )
-    else:
-        optimize_func = partial(
-            optimize,
-            clf_model = clf_model,
-            model_config = model_config,
-            eval_metric = eval_metric,
-            use_predict_proba = use_predict_proba
-        )
-    db_path = os.path.join(model_config['path'], f"{model_config['output_path']}/params.db")
+    optimize_func = partial(
+        optimize,
+        clf_model = clf_model,
+        model_config = model_config,
+        eval_metric = eval_metric,
+        use_predict_proba = use_predict_proba
+    )
+    db_path = os.path.join(model_config['output_path'], f"{model_config['store_file']}/params.db")
     study = optuna.create_study(
-        direction="minimize",
+        direction=model_config['direction'],
         study_name=model_config["study_name"],
         storage=f"sqlite:///{db_path}",
         load_if_exists=True
@@ -218,8 +206,8 @@ def predict_model(model_config, best_params):
 
     for fold in range(model_config["no_of_fold"]):
         logger.info(f">> Train and predict for fold : {fold}")
-        train_feather = pd.read_feather(os.path.join(model_config["path"], f"{model_config['output_path']}/train_fold_{fold}.feather"))
-        test_feather = pd.read_feather(os.path.join(model_config["path"], f"{model_config['output_path']}/test_fold_{fold}.feather"))
+        train_feather = pd.read_feather(os.path.join(model_config['output_path'], f"{model_config['store_file']}/train_fold_{fold}.feather"))
+        test_feather = pd.read_feather(os.path.join(model_config['output_path'], f"{model_config['store_file']}/test_fold_{fold}.feather"))
         xtrain = train_feather[model_config["features"]]
         xtest = test_feather[model_config["features"]]
 
@@ -227,7 +215,7 @@ def predict_model(model_config, best_params):
         ytest = test_feather[model_config["label"]].values
 
         if model_config["test_path"] is not None:
-            test_file = pd.read_feather(f'{os.path.join(model_config["path"], model_config["output_path"])}/test_file.feather')
+            test_file = pd.read_feather(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/test_file.feather')
             X_test = test_file[model_config["features"]]
 
         if model_config["model_name"] == "xgb":

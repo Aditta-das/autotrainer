@@ -46,18 +46,16 @@ def without_compare():
     return model_params
 
 def get_params(trial, model_config):
-    if model_config["compare"] is True and model_config["model_name"] == "compare":
-        classifier_name = trial.suggest_categorical("classifier", ["SVC", "RandomForest"])
-        if classifier_name == "SVC":
-            svc_c = trial.suggest_float("svc_c", 1e-10, 1e10, log=True)
-            classifier_obj = SVC(C=svc_c, gamma="auto")
-        else:
-            rf_max_depth = trial.suggest_int("rf_max_depth", 2, 32, log=True)
-            classifier_obj = RandomForestClassifier(
-                max_depth=rf_max_depth, n_estimators=10
-            )
+    if model_config["model_name"] == "ExtraTree":
+        params = {
+            "n_estimators": trial.suggest_categorical("n_estimators", [7000, 15000, 20000]),
+            "criterion": trial.suggest_categorical("criterion", ["gini", "entropy"]),
+            "max_depth": trial.suggest_int("max_depth", 1, 9),
+            "early_stopping_rounds": trial.suggest_int("early_stopping_rounds", 100, 500),
+            "max_features": trial.suggest_categorical("max_features", ["auto", "sqrt", "log2"]),
+        }
 
-    if model_config["model_name"] == "xgb":
+    elif model_config["model_name"] == "xgb":
         params = {
             "learning_rate": trial.suggest_float("learning_rate", 1e-2, 0.25, log=True),
             "reg_lambda": trial.suggest_float("reg_lambda", 1e-8, 100.0, log=True),
@@ -73,11 +71,12 @@ def get_params(trial, model_config):
             params["gpu_id"] = 0
             params["predictor"] = "gpu_predictor"
         else:
-            params["tree_method"] = trial.suggest_categorical("tree_method", ["exact", "approx", "hist"])
-            params["booster"] = trial.suggest_categorical("booster", ["gbtree", "gblinear"])
-            if params["booster"] == "gbtree":
-                params["gamma"] = trial.suggest_float("gamma", 1e-8, 1.0, log=True)
-                params["grow_policy"] = trial.suggest_categorical("grow_policy", ["depthwise", "lossguide"])
+            pass
+            # params["tree_method"] = trial.suggest_categorical("tree_method", ["exact", "approx", "hist"])
+            # params["booster"] = trial.suggest_categorical("booster", ["gbtree", "gblinear"])
+            # if params["booster"] == "gbtree":
+            #     params["gamma"] = trial.suggest_float("gamma", 1e-8, 1.0, log=True)
+            #     params["grow_policy"] = trial.suggest_categorical("grow_policy", ["depthwise", "lossguide"])
                 
     elif model_config["model_name"] == "lgb":
         params = {
