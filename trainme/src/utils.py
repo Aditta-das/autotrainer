@@ -105,16 +105,17 @@ def dict_mean(dict_list):
 
 
 def submission_test(model_config, sub_pred_values):
+    sub_pred_ = np.mean(sub_pred_values, axis=0) 
     if model_config["submission_path"] is not None:
         sub_df = pd.csv(os.path.join(model_config["submission_path"]))
-        sub_df[model_config["label"]] = sub_pred_values
+        sub_df[model_config["label"]] = sub_pred_
         sub_df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission_file.csv', index=False)
         logger.info(">>> Save Kaggle Type Prediction")
     else:
-        test_file = pd.read_feather(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/test_file.feather')
+        test_file = pd.read_feather(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/reduced_dataset_test.feather')
         test_list = [
             [i for i in range(test_file.shape[0])],
-            [sub_pred_values]
+            [sub_pred_]
         ]
         df = pd.DataFrame(test_list, columns=["index", model_config["label"]])
         df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission_file.csv', index=False)
@@ -233,7 +234,7 @@ def predict_model(model_config, best_params):
         ytest = test_feather[model_config["label"]].values
 
         if model_config["test_path"] is not None:
-            test_file = pd.read_feather(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/test_file.feather')
+            test_file = pd.read_feather(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/reduced_dataset_test.feather')
             X_test = test_file[model_config["features"]]
 
         if model_config["model_name"] == "xgb":

@@ -14,7 +14,8 @@ s = ReadFile(
 	model_name="xgb",
 	output_path="/media/aditta/NewVolume/amazon",
 	study_name="new_train",
-	store_file ="out3",
+	store_file ="out7",
+	n_trails=2
 )
 
 print(s.report())
