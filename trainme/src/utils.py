@@ -104,6 +104,14 @@ def dict_mean(dict_list):
     return mean_dict
 
 
+def kaggle_submission(model_config, final_pred):
+    if not model_config["kaggle"]:
+        ans = np.mean(np.stack(final_pred), axis = 0)
+        sub_df = pd.read_csv(model_config["submission_path"])
+        sub_df[model_config["label"]] = ans
+        sub_df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission.csv', index=False)
+
+
 def submission_test(model_config, sub_pred_values):
     sub_pred_ = np.mean(sub_pred_values, axis=0) 
     df = pd.DataFrame(sub_pred_, columns=model_config["label"])
@@ -279,9 +287,12 @@ def predict_model(model_config, best_params):
     mean_metrics = dict_mean(scores)
     logger.info(f"Metrics: {mean_metrics}")
 
+    if not model_config["kaggle"]:
+        kaggle_submission(model_config, test_prediction)
+
     # test_prediction = np.mean(np.column_stack(test_prediction),axis=1)
-    df = pd.DataFrame(test_prediction, columns=["labels"])
-    df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission_file.csv', index=False)
-    logger.info(">>> Save Test Prediction")
+    # df = pd.DataFrame(test_prediction, columns=["labels"])
+    # df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission_file.csv', index=False)
+    # logger.info(">>> Save Test Prediction")
     # if model_config["submission_path"] is not None:
     #     submission_test(model_config, test_prediction)

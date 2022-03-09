@@ -59,7 +59,8 @@ class ReadFile:
 		output_path="output",
 		study_name="train",
 		store_file=None,
-		direction="minimize"
+		direction="minimize",
+		kaggle=False,
 	):
 		self.train_path = train_path
 		self.test_path = test_path
@@ -80,6 +81,7 @@ class ReadFile:
 		self.n_trials = n_trials
 		self.store_file = store_file
 		self.direction = direction
+		self.kaggle = kaggle
 		if self.compare is False:
 			self.model_name = model_name
 
@@ -212,7 +214,8 @@ class ReadFile:
 				'n_trials': self.n_trials,
 				'compare': self.compare,
 				'direction': self.direction,
-				'categorical': categoriacal
+				'categorical': categoriacal,
+				'kaggle': self.kaggle
 			}
 			with open(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/features.json"), "w") as file:
 				json.dump(json_features, file)
