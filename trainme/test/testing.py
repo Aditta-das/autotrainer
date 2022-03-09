@@ -6,6 +6,7 @@ from src.read_data import ReadFile
 
 s = ReadFile(
 	train_path="/home/aditta/Desktop/trainme/trainme/input/multi_class_classification.csv",
+	test_path="/home/aditta/Desktop/trainme/trainme/input/multi_class_classification_test.csv",
 	label="target",
     task_type="multi_classification",
 	compare=False,
@@ -13,7 +14,7 @@ s = ReadFile(
 	model_name="xgb",
 	output_path="/media/aditta/NewVolume/amazon",
 	study_name="new_train",
-	store_file ="out",
+	store_file ="out3",
 )
 
 print(s.report())

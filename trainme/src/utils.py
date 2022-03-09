@@ -107,7 +107,7 @@ def dict_mean(dict_list):
 def submission_test(model_config, sub_pred_values):
     if model_config["submission_path"] is not None:
         sub_df = pd.csv(os.path.join(model_config["submission_path"]))
-        sub_df[model_config["label_name2"]] = sub_pred_values
+        sub_df[model_config["label"]] = sub_pred_values
         sub_df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission_file.csv', index=False)
         logger.info(">>> Save Kaggle Type Prediction")
     else:
@@ -116,7 +116,7 @@ def submission_test(model_config, sub_pred_values):
             [i for i in range(test_file.shape[0])],
             [sub_pred_values]
         ]
-        df = pd.DataFrame(test_list, columns=[model_config["col_name1"], model_config["label_name2"]])
+        df = pd.DataFrame(test_list, columns=["index", model_config["label"]])
         df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission_file.csv', index=False)
         logger.info(">>> Save Test Prediction")
 

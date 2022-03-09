@@ -52,8 +52,6 @@ class ReadFile:
 		use_gpu=False,
 		fill_value=None,
 		compare=True,
-		col_name1 = None,
-		label_name2 = None,
 		task_type="binary_classification",
 		scaler="standard",
 		fold="kfold",
@@ -66,9 +64,6 @@ class ReadFile:
 		self.train_path = train_path
 		self.test_path = test_path
 		self.submission_path = submission_path
-		if self.submission_path is not None:
-			self.col_name1 = col_name1
-			self.label_name2 = label_name2
 		self.drop_col = drop_col
 		self.label = label
 		self.features=features
@@ -108,7 +103,7 @@ class ReadFile:
 		if self.test_path is not None:
 			test_file = pd.read_csv(self.test_path)
 			test_file = reduce_mem_usage(test_file)
-			test_file.to_feather(f"{os.path.join(self.output_path, self.store_file)}/reduced_dataset_test.feather", index=False)
+			test_file.to_feather(f"{os.path.join(self.output_path, self.store_file)}/reduced_dataset_test.feather")
 		
 		logger.info(f"Output folder : {self.output_path} created")
 		if self.drop_col is not None:
@@ -181,8 +176,7 @@ class ReadFile:
         	)
 			for f, (tr_, val_) in enumerate(skf.split(X=df, y=df[f"{self.label}"])):
 				df.loc[val_, "kfold"] = f
-			logger.info("Str
-        kaggle_test(model_config, test_prediction, )atified Kfold >>>")
+			logger.info("Stratified Kfold >>>")
 
 		# random fold system
 		elif self.fold == "random":
@@ -218,9 +212,7 @@ class ReadFile:
 				'n_trails': self.n_trails,
 				'compare': self.compare,
 				'direction': self.direction,
-				'categorical': categoriacal,
-				'col_name1': self.col_name1,
-				'label_name2': self.label_name2
+				'categorical': categoriacal
 			}
 			with open(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/features.json"), "w") as file:
 				json.dump(json_features, file)
