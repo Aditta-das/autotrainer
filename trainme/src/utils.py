@@ -8,7 +8,7 @@ from tqdm.auto import tqdm
 import numpy as np
 import xgboost as xgb
 from .logger import logger  
-from sklearn.preprocessing import LabelEncoder, LabelBinarizer
+from sklearn.preprocessing import LabelEncoder, LabelBinarizer, OrdinalEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.model_selection import KFold, StratifiedKFold
 from sklearn.svm import SVC
@@ -19,6 +19,7 @@ from .cfg import CFG
 from .models import fetch_model, Metrics
 import pandas as pd 
 import optuna
+import joblib
 
 optuna.logging.set_verbosity(optuna.logging.INFO)
 
@@ -74,15 +75,15 @@ def null_checker(data):
             display(f"after fillup null: {col} >> total null : {data[col].isnull().sum()}")
 		
 
-def label_encode(df, target, is_test=None):
-    lbl_encoder = LabelEncoder()
-    df[target] = lbl_encoder.fit_transform(df[target])
+def label_encode(df, target, model_config):
+    pass
+
     # if is_train:
     #     df[target] = lbl_encoder.transform(df[target])
 
 
-def categorical_data():
-	pass
+def categorical_data(df, model):
+    pass
 
 def normal_data_split(df, label, random_state, shuffle, test_size):
     X = df.drop(label, axis=1)

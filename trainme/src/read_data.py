@@ -12,8 +12,11 @@ read_path:
 '''
 import os
 import json
+import joblib
 import pandas as pd
+import numpy as np
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
 from tabulate import tabulate
 from .logger import logger
 from IPython.display import display
@@ -138,13 +141,20 @@ class ReadFile:
 	def _process_data(self):
 		path = os.path.join(f"{os.path.join(self.output_path, self.store_file)}")
 		df = pd.read_csv(os.path.join(f"{path}/reduced_dataset.csv"))
-
+	
 		if df[self.label].dtype == "object":
-			label_encode(df, self.label, is_test=None)
+			lbl_encoder = LabelEncoder()
+			df[self.label] = lbl_encoder.fit_transform(df[self.label])
+			logger.info(">>> LabelEncoder Saving")
+			joblib.dump(lbl_encoder, f"{os.path.join(self.output_path, self.store_file)}/lbl_encod.joblib")
+
+		categoriacal = []
+		for col in df.columns:
+			if df[col].dtype == "object":
+				categoriacal.append(col)
+			else:
+				pass		
 		
-		if self.test_path is not None:
-			test_file = pd.read_csv(os.path.join(f"{path}/reduced_dataset_test.csv"))
-			test_file.to_feather(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/test_file.feather"))
 
 		# fold system
 		if self.fold == "kfold":
@@ -200,7 +210,8 @@ class ReadFile:
 				'study_name': self.study_name,
 				'n_trails': self.n_trails,
 				'compare': self.compare,
-				'direction': self.direction
+				'direction': self.direction,
+				'categorical': categoriacal,
 			}
 			with open(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/features.json"), "w") as file:
 				json.dump(json_features, file)
@@ -210,9 +221,26 @@ class ReadFile:
 		2. if test file is not none then save test file as feather file
 		'''
 		if self.fold == "skfold" or self.fold == "kfold":
+			categorical_encod = {}
 			for fold in range(self.no_of_fold):
 				train_fold = df[df.kfold != fold].reset_index(drop=True)
 				test_fold = df[df.kfold == fold].reset_index(drop=True)
+
+				cat_features = json_features['categorical']
+				if len(json_features['categorical']) > 0:
+					ordi_encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=np.nan)
+					train_fold[cat_features] = ordi_encoder.fit_transform(train_fold[categoriacal].values)
+					test_fold[cat_features] = ordi_encoder.transform(test_fold[cat_features].values)
+
+					if self.test_path is not None:
+						test_file = pd.read_csv(os.path.join(f"{path}/reduced_dataset_test.csv"))
+						test_file[cat_features] = ordi_encoder.transform(test_file[cat_features].values)
+						test_file.to_feather(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/test_file.feather"))
+
+					categorical_encod[fold] = ordi_encoder
+
+				logger.info(">> Categorical Encoder saving")
+				joblib.dump(categorical_encod, f"{os.path.join(self.output_path, self.store_file)}/cat_encod.joblib")
 
 				# save fold as feather file
 				train_fold.to_feather(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/train_fold_{fold}.feather"))
@@ -220,7 +248,6 @@ class ReadFile:
 
 				logger.info(f">>> train fold {fold} save")
 				logger.info(f">>> test fold {fold} save")
-
 
 		if self.task_type == "binary_classification" or self.task_type == "multi_classification":
 			if self.compare is True:

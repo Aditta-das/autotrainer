@@ -5,7 +5,7 @@ from sklearn import metrics as skmet
 from sklearn.ensemble import ExtraTreesClassifier
 
 def fetch_model(model_config):
-    if model_config["problem_type"] == "binary_classification" or model_config["problem_type"] == "multi_classification":
+    if model_config["problem_type"] == "binary_classification":
         if model_config["model_name"] == "xgb":
             clf_model = xgb.XGBClassifier
             use_predict_proba = True
@@ -21,6 +21,23 @@ def fetch_model(model_config):
             use_predict_proba = True
             direction = "minimize"
             eval_metric = "logloss"
+    elif model_config["problem_type"] == "multi_classification":
+        if model_config["model_name"] == "xgb":
+            clf_model = xgb.XGBClassifier
+            use_predict_proba = True
+            direction = "minimize"
+            eval_metric = "mlogloss"
+        elif model_config["model_name"] == "lgb":
+            clf_model = lgb.LGBMClassifier
+            use_predict_proba = True
+            direction = "minimize"
+            eval_metric = "mlogloss"
+        elif model_config["model_name"] == "ExtraTree":
+            clf_model = ExtraTreesClassifier
+            use_predict_proba = True
+            direction = "minimize"
+            eval_metric = "mlogloss"
+
     return clf_model, use_predict_proba, direction, eval_metric
 
 
@@ -38,9 +55,9 @@ class Metrics:
             }
         elif self.problem == "multi_classification":
             self.valid_metrics = {
-                # "logloss": skmet.log_loss,
+                "logloss": skmet.log_loss,
                 "accuracy": skmet.accuracy_score,
-                # "mlogloss": skmet.log_loss,
+                "mlogloss": skmet.log_loss,
             }
 
     def calculate(self, ytest, ypred):
@@ -56,8 +73,8 @@ class Metrics:
             elif self.problem == "multi_classification":
                 if met_name == "accuracy":
                     metrics[met_name] = met_func(ytest, np.argmax(ypred, axis=1))
-                # else:
-                #     metrics[met_name] = met_func(ytest, ypred)
+                else:
+                    metrics[met_name] = met_func(ytest, ypred)
         
         return metrics
 

@@ -13,7 +13,7 @@ s = ReadFile(
 	model_name="xgb",
 	output_path="/media/aditta/NewVolume/amazon",
 	study_name="new_train",
-	store_file ="new4",
+	store_file ="out",
 )
 
 print(s.report())
