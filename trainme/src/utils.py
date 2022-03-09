@@ -104,6 +104,22 @@ def dict_mean(dict_list):
     return mean_dict
 
 
+def submission_test(model_config, sub_pred_values):
+    if model_config["submission_path"] is not None:
+        sub_df = pd.csv(os.path.join(model_config["submission_path"]))
+        sub_df[model_config["label_name2"]] = sub_pred_values
+        sub_df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission_file.csv', index=False)
+        logger.info(">>> Save Kaggle Type Prediction")
+    else:
+        test_file = pd.read_feather(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/test_file.feather')
+        test_list = [
+            [i for i in range(test_file.shape[0])],
+            [sub_pred_values]
+        ]
+        df = pd.DataFrame(test_list, columns=[model_config["col_name1"], model_config["label_name2"]])
+        df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission_file.csv', index=False)
+        logger.info(">>> Save Test Prediction")
+
 
 
 def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
@@ -198,6 +214,7 @@ prediction test => fold by fold prediction using there best params
 def predict_model(model_config, best_params):
     scores = []
     test_prediction = []
+    sub_prediction = []
     clf_model, use_predict_proba, direction, eval_metric = fetch_model(model_config)
 
     metrics = Metrics(model_config)
@@ -247,9 +264,14 @@ def predict_model(model_config, best_params):
             eval_set=[(xtest, ytest)]
         )
         if use_predict_proba:
-            ypred = model.predict_proba(xtest)
+            ypred = model.predict_proba(xtest)[:, 1]
+            test_prediction.append(ypred)
+            if model_config["test_path"] is not None:
+                test_pred = model.predict_proba(X_test)[:, 1]
+                test_prediction.append(test_pred)
         else:
             ypred = model.predict(xtest)
+            test_prediction.append(ypred)
             if model_config["test_path"] is not None:
                 logger.info(">> Preiction on test file")
                 test_pred = model.predict(X_test)
@@ -265,3 +287,6 @@ def predict_model(model_config, best_params):
     # create a function that take mean separately take all values from list and print the eval_metrics
     mean_metrics = dict_mean(scores)
     logger.info(f"Metrics: {mean_metrics}")
+
+    if model_config["submission_path"] is not None:
+        submission_test(model_config, test_prediction)

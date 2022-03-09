@@ -21,6 +21,7 @@ def fetch_model(model_config):
             use_predict_proba = True
             direction = "minimize"
             eval_metric = "logloss"
+            
     elif model_config["problem_type"] == "multi_classification":
         if model_config["model_name"] == "xgb":
             clf_model = xgb.XGBClassifier

@@ -52,6 +52,8 @@ class ReadFile:
 		use_gpu=False,
 		fill_value=None,
 		compare=True,
+		col_name1 = None,
+		label_name2 = None,
 		task_type="binary_classification",
 		scaler="standard",
 		fold="kfold",
@@ -64,6 +66,9 @@ class ReadFile:
 		self.train_path = train_path
 		self.test_path = test_path
 		self.submission_path = submission_path
+		if self.submission_path is not None:
+			self.col_name1 = col_name1
+			self.label_name2 = label_name2
 		self.drop_col = drop_col
 		self.label = label
 		self.features=features
@@ -168,7 +173,7 @@ class ReadFile:
 				df.loc[val_, "kfold"] = f
 			logger.info("Kfold Done >>>")
 
-		# stratified Kfold system
+		# stratified Kfold test_prediction.append(test_pred)system
 		elif self.fold == "skfold":
 			df["kfold"] = -1
 			skf = StratifiedKFold(
@@ -176,7 +181,8 @@ class ReadFile:
         	)
 			for f, (tr_, val_) in enumerate(skf.split(X=df, y=df[f"{self.label}"])):
 				df.loc[val_, "kfold"] = f
-			logger.info("Stratified Kfold >>>")
+			logger.info("Str
+        kaggle_test(model_config, test_prediction, )atified Kfold >>>")
 
 		# random fold system
 		elif self.fold == "random":
@@ -200,6 +206,7 @@ class ReadFile:
 				'output_path': self.output_path,
 				'store_file': self.store_file,
 				'test_path': self.test_path,
+				'submission_path': self.submission_path,
 				'model_name': self.model_name,
 				'random_state': self.random_state,
 				'shuffle': self.shuffle,
@@ -212,6 +219,8 @@ class ReadFile:
 				'compare': self.compare,
 				'direction': self.direction,
 				'categorical': categoriacal,
+				'col_name1': self.col_name1,
+				'label_name2': self.label_name2
 			}
 			with open(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/features.json"), "w") as file:
 				json.dump(json_features, file)
