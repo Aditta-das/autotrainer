@@ -106,20 +106,9 @@ def dict_mean(dict_list):
 
 def submission_test(model_config, sub_pred_values):
     sub_pred_ = np.mean(sub_pred_values, axis=0) 
-    if model_config["submission_path"] is not None:
-        sub_df = pd.csv(os.path.join(model_config["submission_path"]))
-        sub_df[model_config["label"]] = sub_pred_
-        sub_df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission_file.csv', index=False)
-        logger.info(">>> Save Kaggle Type Prediction")
-    else:
-        test_file = pd.read_feather(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/reduced_dataset_test.feather')
-        test_list = [
-            [i for i in range(test_file.shape[0])],
-            [sub_pred_]
-        ]
-        df = pd.DataFrame(test_list, columns=["index", model_config["label"]])
-        df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission_file.csv', index=False)
-        logger.info(">>> Save Test Prediction")
+    df = pd.DataFrame(sub_pred_, columns=model_config["label"])
+    df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission_file.csv', index=False)
+    logger.info(">>> Save Test Prediction")
 
 
 
@@ -206,11 +195,11 @@ def train_model(model_config):
         storage=f"sqlite:///{db_path}",
         load_if_exists=True
     )
-    study.optimize(optimize_func, n_trials=model_config["n_trails"])
+    study.optimize(optimize_func, n_trials=model_config["n_trials"])
     return study.best_params
 
 '''
-prediction test => fold by fold prediction using there best params
+prediction test => fold by fold predictiotest_predsn using there best params
 '''
 def predict_model(model_config, best_params):
     scores = []
@@ -265,10 +254,10 @@ def predict_model(model_config, best_params):
             eval_set=[(xtest, ytest)]
         )
         if use_predict_proba:
-            ypred = model.predict_proba(xtest)[:, 1]
+            ypred = model.predict_proba(xtest)
             test_prediction.append(ypred)
             if model_config["test_path"] is not None:
-                test_pred = model.predict_proba(X_test)[:, 1]
+                test_pred = model.predict_proba(X_test)
                 test_prediction.append(test_pred)
         else:
             ypred = model.predict(xtest)
@@ -282,6 +271,7 @@ def predict_model(model_config, best_params):
         '''
         models.py : we have to create a function calculate, that will measure model performance
         '''
+
         metrics_dict = metrics.calculate(ytest, ypred) # TODO : write this function
         scores.append(metrics_dict)
         logger.info(f">> Fold {fold} done")
@@ -289,5 +279,9 @@ def predict_model(model_config, best_params):
     mean_metrics = dict_mean(scores)
     logger.info(f"Metrics: {mean_metrics}")
 
-    if model_config["submission_path"] is not None:
-        submission_test(model_config, test_prediction)
+    # test_prediction = np.mean(np.column_stack(test_prediction),axis=1)
+    df = pd.DataFrame(test_prediction, columns=["labels"])
+    df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission_file.csv', index=False)
+    logger.info(">>> Save Test Prediction")
+    # if model_config["submission_path"] is not None:
+    #     submission_test(model_config, test_prediction)

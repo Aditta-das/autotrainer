@@ -48,7 +48,7 @@ class ReadFile:
 		no_of_fold=5,
 		shuffle=True,
 		test_size=0.3,
-		n_trails=10,
+		n_trials=10,
 		use_gpu=False,
 		fill_value=None,
 		compare=True,
@@ -77,7 +77,7 @@ class ReadFile:
 		self.compare = compare
 		self.output_path = output_path
 		self.study_name = study_name
-		self.n_trails = n_trails
+		self.n_trials = n_trials
 		self.store_file = store_file
 		self.direction = direction
 		if self.compare is False:
@@ -209,7 +209,7 @@ class ReadFile:
 				'use_gpu': self.use_gpu,
 				'problem_type': self.task_type,
 				'study_name': self.study_name,
-				'n_trails': self.n_trails,
+				'n_trials': self.n_trials,
 				'compare': self.compare,
 				'direction': self.direction,
 				'categorical': categoriacal
