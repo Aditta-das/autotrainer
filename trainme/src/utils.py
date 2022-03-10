@@ -1,3 +1,4 @@
+from cgitb import enable
 import os
 import json
 from lightgbm import early_stopping
@@ -20,6 +21,9 @@ from .models import fetch_model, Metrics
 import pandas as pd 
 import optuna
 import joblib
+
+from wandb.xgboost import wandb_callback
+from wandb.lightgbm import wandb_callback, log_summary
 
 optuna.logging.set_verbosity(optuna.logging.INFO)
 
@@ -69,9 +73,10 @@ def null_checker(data):
     for col in data.columns:
         if data[col].isnull().sum() > 0:
             display(f"null col: {col} >> total null : {data[col].isnull().sum()}")
-            data[col] = data[col].replace(
-                np.NaN, data[col].mean()
-            )
+            # if data[col].dtype == "object":
+            data[col] = data[col].fillna(method='ffill')
+            # else:
+            #     data[col] = data[col].fillna(data[col].mean())
             display(f"after fillup null: {col} >> total null : {data[col].isnull().sum()}")
 		
 
@@ -105,16 +110,21 @@ def dict_mean(dict_list):
 
 
 def kaggle_submission(model_config, final_pred):
-    if not model_config["kaggle"]:
-        ans = np.mean(np.stack(final_pred), axis = 0)
-        sub_df = pd.read_csv(model_config["submission_path"])
-        sub_df[model_config["label"]] = ans
-        sub_df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission.csv', index=False)
-
+    ans = np.mean(final_pred, axis = 0)
+    # print(ans.shape)
+    sub_df = pd.read_csv(model_config["submission_path"])
+    sub_df[model_config["label"]] = ans
+    sub_df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission.csv', index=False)
+    logger.info(">>> Submission For Kaggle Is Prepared. Please Cross-check")
 
 def submission_test(model_config, sub_pred_values):
-    sub_pred_ = np.mean(sub_pred_values, axis=0) 
-    df = pd.DataFrame(sub_pred_, columns=model_config["label"])
+    # sub_pred_ = np.mean(sub_pred_values, axis=0)
+    # print(sub_pred_.shape)
+    d = {
+        'label': sub_pred_values
+    }
+    df = pd.DataFrame.from_dict(data=d, orient='index').reset_index()
+
     df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission_file.csv', index=False)
     logger.info(">>> Save Test Prediction")
 
@@ -146,7 +156,7 @@ def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
                 **params,
                 use_label_encoder=False,
                 eval_metric=eval_metric,
-                random_state=model_config["random_state"]
+                random_state=model_config["random_state"],
             )
 
         elif model_config["model_name"] == "lgb":
@@ -166,7 +176,8 @@ def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
             ytrain,
             verbose=False, 
             early_stopping_rounds=early_stopping_rounds,
-            eval_set=[(xtest, ytest)]
+            eval_set=[(xtest, ytest)],
+            # callbacks=[wandb_callback()]
         )
         
         if use_predict_proba:
@@ -231,8 +242,9 @@ def predict_model(model_config, best_params):
         ytest = test_feather[model_config["label"]].values
 
         if model_config["test_path"] is not None:
-            test_file = pd.read_feather(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/reduced_dataset_test.feather')
+            test_file = pd.read_feather(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/test_file_{fold}.feather')
             X_test = test_file[model_config["features"]]
+            test_file["idx"] = np.arange(len(test_file))
 
         if model_config["model_name"] == "xgb":
             model = clf_model(
@@ -261,19 +273,20 @@ def predict_model(model_config, best_params):
             early_stopping_rounds=early_stopping_rounds,
             eval_set=[(xtest, ytest)]
         )
+        
         if use_predict_proba:
             ypred = model.predict_proba(xtest)
             test_prediction.append(ypred)
             if model_config["test_path"] is not None:
                 test_pred = model.predict_proba(X_test)
-                test_prediction.append(test_pred)
+                sub_prediction.append(test_pred)
         else:
             ypred = model.predict(xtest)
             test_prediction.append(ypred)
             if model_config["test_path"] is not None:
                 logger.info(">> Preiction on test file")
                 test_pred = model.predict(X_test)
-                test_prediction.append(test_pred)
+                sub_prediction.append(test_pred)
 
         # metrics calculation
         '''
@@ -287,12 +300,7 @@ def predict_model(model_config, best_params):
     mean_metrics = dict_mean(scores)
     logger.info(f"Metrics: {mean_metrics}")
 
-    if not model_config["kaggle"]:
-        kaggle_submission(model_config, test_prediction)
-
-    # test_prediction = np.mean(np.column_stack(test_prediction),axis=1)
-    # df = pd.DataFrame(test_prediction, columns=["labels"])
-    # df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission_file.csv', index=False)
-    # logger.info(">>> Save Test Prediction")
-    # if model_config["submission_path"] is not None:
-    #     submission_test(model_config, test_prediction)
+    if model_config["kaggle"] and model_config["submission_path"] is not None:
+        kaggle_submission(model_config, sub_prediction)
+    elif model_config["kaggle"] is False and model_config["test_path"] is not None:
+        submission_test(model_config, test_prediction)

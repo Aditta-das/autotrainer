@@ -5,17 +5,20 @@ sys.path.append(o.abspath(o.join(o.dirname(sys.modules[__name__].__file__), ".."
 from src.read_data import ReadFile
 
 s = ReadFile(
-	train_path="/home/aditta/Desktop/trainme/trainme/input/multi_class_classification.csv",
-	test_path="/home/aditta/Desktop/trainme/trainme/input/multi_class_classification_test.csv",
-	label="target",
-    task_type="multi_classification",
+	train_path="/home/aditta/Desktop/kaggle_comp/train.csv",
+	test_path="/home/aditta/Desktop/kaggle_comp/test.csv",
+	# submission_path="/home/aditta/Desktop/kaggle_comp/sample_submission.csv",
+	drop_col=["Name", "PassengerId", "Cabin"],
+	label="Transported",
+    task_type="binary_classification",
 	compare=False,
-	fold="skfold",
-	model_name="xgb",
-	output_path="/media/aditta/NewVolume/amazon",
+	fold="kfold",
+	model_name="lgb",
+	output_path="/home/aditta/Desktop/kaggle_comp",
 	study_name="new_train",
-	store_file ="out9",
-	n_trials=1
+	store_file ="new_out1",
+	n_trials=1,
+	kaggle=False
 )
 
 print(s.report())

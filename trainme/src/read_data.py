@@ -15,6 +15,7 @@ import json
 import joblib
 import pandas as pd
 import numpy as np
+import wandb
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import OrdinalEncoder, LabelEncoder
 from tabulate import tabulate
@@ -23,6 +24,7 @@ from IPython.display import display
 from .utils import label_encode, normal_data_split, null_checker, reduce_mem_usage, train_model, predict_model
 from .visualize import *
 from .params import without_compare
+
 
 from sklearn.metrics import accuracy_score
 from sklearn.linear_model import LogisticRegression, PassiveAggressiveClassifier
@@ -60,7 +62,7 @@ class ReadFile:
 		study_name="train",
 		store_file=None,
 		direction="minimize",
-		kaggle=False,
+		kaggle=True,
 	):
 		self.train_path = train_path
 		self.test_path = test_path
@@ -85,6 +87,11 @@ class ReadFile:
 		if self.compare is False:
 			self.model_name = model_name
 
+	# def wandb_visualize(project_name="new"):
+	# 	os.environ["WANDB_SILENT"] = "true"
+	# 	wandb.init(project=project_name)
+
+
 	def auto_output_folder(self):
 		# base_path = os.path.dirname(os.getcwd())
 		directory = os.path.join(self.output_path, self.store_file)
@@ -99,12 +106,15 @@ class ReadFile:
 	def load_path(self):
 		self.auto_output_folder()
 
+		# self.wandb_visualize()
+
 		train_file = pd.read_csv(self.train_path)
 		train_file = reduce_mem_usage(train_file)
 
 		if self.test_path is not None:
 			test_file = pd.read_csv(self.test_path)
 			test_file = reduce_mem_usage(test_file)
+			test_file.drop(self.drop_col, axis=1, inplace=True)
 			test_file.to_feather(f"{os.path.join(self.output_path, self.store_file)}/reduced_dataset_test.feather")
 		
 		logger.info(f"Output folder : {self.output_path} created")
@@ -122,7 +132,7 @@ class ReadFile:
 		)
 		logger.info("Is there any null values?")
 
-		null_checker(train_file)
+		# null_checker(train_file)
 		
 		if self.task_type == "binary_classification" or self.task_type == "multi_classification":
 			logger.info(f"Label: {self.label} balanced or not?")
@@ -135,7 +145,7 @@ class ReadFile:
 
 		train_file.to_csv(f"{os.path.join(self.output_path, self.store_file)}/reduced_dataset.csv", index=False)
 		
-		logger.info("Datset created and saved")	
+		logger.info("Dataset created and saved")	
 
 	def visualize(self):
 		pass
@@ -146,14 +156,21 @@ class ReadFile:
 	
 		if df[self.label].dtype == "object":
 			lbl_encoder = LabelEncoder()
-			df[self.label] = lbl_encoder.fit_transform(df[self.label])
+			df[self.label] = lbl_encoder.fit(
+				df[self.label].values.reshape(-1,)
+			)
+			df.loc[:, self.label] = lbl_encoder.transform(
+                df[self.label].values.reshape(
+                    -1,
+                )
+            )
 			logger.info(">>> LabelEncoder Saving")
 			joblib.dump(lbl_encoder, f"{os.path.join(self.output_path, self.store_file)}/lbl_encod.joblib")
 
-		categoriacal = []
+		categorical = []
 		for col in df.columns:
 			if df[col].dtype == "object":
-				categoriacal.append(col)
+				categorical.append(col)
 			else:
 				pass		
 		
@@ -214,7 +231,7 @@ class ReadFile:
 				'n_trials': self.n_trials,
 				'compare': self.compare,
 				'direction': self.direction,
-				'categorical': categoriacal,
+				'categorical': categorical,
 				'kaggle': self.kaggle
 			}
 			with open(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/features.json"), "w") as file:
@@ -224,26 +241,26 @@ class ReadFile:
 		   as feather file for train and test data
 		2. if test file is not none then save test file as feather file
 		'''
+		
 		if self.fold == "skfold" or self.fold == "kfold":
 			categorical_encod = {}
 			for fold in range(self.no_of_fold):
 				train_fold = df[df.kfold != fold].reset_index(drop=True)
 				test_fold = df[df.kfold == fold].reset_index(drop=True)
 
-				cat_features = json_features['categorical']
-				if len(json_features['categorical']) > 0:
+				if len(categorical) > 0:
 					ordi_encoder = OrdinalEncoder(handle_unknown="use_encoded_value", unknown_value=np.nan)
-					train_fold[cat_features] = ordi_encoder.fit_transform(train_fold[categoriacal].values)
-					test_fold[cat_features] = ordi_encoder.transform(test_fold[cat_features].values)
+					train_fold[categorical] = ordi_encoder.fit_transform(train_fold[categorical].values)
+					test_fold[categorical] = ordi_encoder.transform(test_fold[categorical].values)
 
 					if self.test_path is not None:
-						test_file = pd.read_csv(os.path.join(f"{path}/reduced_dataset_test.csv"))
-						test_file[cat_features] = ordi_encoder.transform(test_file[cat_features].values)
-						test_file.to_feather(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/test_file.feather"))
+						test_file = pd.read_feather(os.path.join(f"{path}/reduced_dataset_test.feather"))
+						test_file[categorical] = ordi_encoder.transform(test_file[categorical].values)
+						test_file.to_feather(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/test_file_{fold}.feather"))
 
 					categorical_encod[fold] = ordi_encoder
 
-				logger.info(">> Categorical Encoder saving")
+				logger.info(">>> Categorical Encoder saving")
 				joblib.dump(categorical_encod, f"{os.path.join(self.output_path, self.store_file)}/cat_encod.joblib")
 
 				# save fold as feather file
@@ -253,12 +270,12 @@ class ReadFile:
 				logger.info(f">>> train fold {fold} save")
 				logger.info(f">>> test fold {fold} save")
 
-		if self.task_type == "binary_classification" or self.task_type == "multi_classification":
-			if self.compare is True:
-				#TODO : compare 2 or more algorithoms
-				pass
-			else:
-				pass
+		# if self.task_type == "binary_classification" or self.task_type == "multi_classification":
+		# 	if self.compare is True:
+		# 		#TODO : compare 2 or more algorithoms
+		# 		pass
+		# 	else:
+		# 		pass
 				'''
 				# TODO : Using GridSearch using one algorithom
 				scores = []
@@ -290,8 +307,4 @@ class ReadFile:
 			model_config = json.load(f)
 			bp = train_model(model_config)
 		predict_model(model_config, best_params=bp)
-		
-
-	def kaggle_submission(self):
-		pass
-
+	
