@@ -17,7 +17,7 @@ with open("README.md") as f:
 if __name__ == "__main__":
     setup(
         name="trainme",
-        version="0.0.2",
+        version="1.0.0",
         description="tune with optuna and model",
         long_description=long_description,
         long_description_content_type="text/markdown",
