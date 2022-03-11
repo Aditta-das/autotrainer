@@ -16,7 +16,7 @@ s = ReadFile(
 	model_name="lgb",
 	output_path="/home/aditta/Desktop/kaggle_comp",
 	study_name="new_train",
-	store_file ="new_out1",
+	folder_output ="new_out1",
 	n_trials=1,
 	kaggle=False
 )

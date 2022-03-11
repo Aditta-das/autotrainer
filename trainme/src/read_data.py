@@ -60,7 +60,7 @@ class ReadFile:
 		model_name="RandomForest",
 		output_path="output",
 		study_name="train",
-		store_file=None,
+		folder_output="new_store",
 		direction="minimize",
 		kaggle=True,
 	):
@@ -81,7 +81,7 @@ class ReadFile:
 		self.output_path = output_path
 		self.study_name = study_name
 		self.n_trials = n_trials
-		self.store_file = store_file
+		self.folder_output = folder_output
 		self.direction = direction
 		self.kaggle = kaggle
 		if self.compare is False:
@@ -94,10 +94,10 @@ class ReadFile:
 
 	def auto_output_folder(self):
 		# base_path = os.path.dirname(os.getcwd())
-		directory = os.path.join(self.output_path, self.store_file)
+		directory = os.path.join(self.output_path, self.folder_output)
 		print(directory)
 		if not os.path.exists(directory):
-			logger.info(f"Create folder name : {self.store_file} folder")
+			logger.info(f"Create folder name : {self.folder_output} folder")
 			os.mkdir(directory)
 		else:
 			logger.info("Folder already exists, create new one")
@@ -115,7 +115,7 @@ class ReadFile:
 			test_file = pd.read_csv(self.test_path)
 			test_file = reduce_mem_usage(test_file)
 			test_file.drop(self.drop_col, axis=1, inplace=True)
-			test_file.to_feather(f"{os.path.join(self.output_path, self.store_file)}/reduced_dataset_test.feather")
+			test_file.to_feather(f"{os.path.join(self.output_path, self.folder_output)}/reduced_dataset_test.feather")
 		
 		logger.info(f"Output folder : {self.output_path} created")
 		if self.drop_col is not None:
@@ -143,7 +143,7 @@ class ReadFile:
 			)
 		else: pass # for regression
 
-		train_file.to_csv(f"{os.path.join(self.output_path, self.store_file)}/reduced_dataset.csv", index=False)
+		train_file.to_csv(f"{os.path.join(self.output_path, self.folder_output)}/reduced_dataset.csv", index=False)
 		
 		logger.info("Dataset created and saved")	
 
@@ -151,7 +151,7 @@ class ReadFile:
 		pass
 
 	def _process_data(self):
-		path = os.path.join(f"{os.path.join(self.output_path, self.store_file)}")
+		path = os.path.join(f"{os.path.join(self.output_path, self.folder_output)}")
 		df = pd.read_csv(os.path.join(f"{path}/reduced_dataset.csv"))
 	
 		if df[self.label].dtype == "object":
@@ -165,7 +165,7 @@ class ReadFile:
                 )
             )
 			logger.info(">>> LabelEncoder Saving")
-			joblib.dump(lbl_encoder, f"{os.path.join(self.output_path, self.store_file)}/lbl_encod.joblib")
+			joblib.dump(lbl_encoder, f"{os.path.join(self.output_path, self.folder_output)}/lbl_encod.joblib")
 
 		categorical = []
 		for col in df.columns:
@@ -217,7 +217,7 @@ class ReadFile:
 				'label': self.label,
 				'path': os.path.dirname(os.getcwd()),
 				'output_path': self.output_path,
-				'store_file': self.store_file,
+				'folder_output': self.folder_output,
 				'test_path': self.test_path,
 				'submission_path': self.submission_path,
 				'model_name': self.model_name,
@@ -234,7 +234,7 @@ class ReadFile:
 				'categorical': categorical,
 				'kaggle': self.kaggle
 			}
-			with open(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/features.json"), "w") as file:
+			with open(os.path.join(f"{os.path.join(self.output_path, self.folder_output)}/features.json"), "w") as file:
 				json.dump(json_features, file)
 		'''
 		1. if kfold or stratified then we will save
@@ -256,16 +256,16 @@ class ReadFile:
 					if self.test_path is not None:
 						test_file = pd.read_feather(os.path.join(f"{path}/reduced_dataset_test.feather"))
 						test_file[categorical] = ordi_encoder.transform(test_file[categorical].values)
-						test_file.to_feather(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/test_file_{fold}.feather"))
+						test_file.to_feather(os.path.join(f"{os.path.join(self.output_path, self.folder_output)}/test_file_{fold}.feather"))
 
 					categorical_encod[fold] = ordi_encoder
 
 				logger.info(">>> Categorical Encoder saving")
-				joblib.dump(categorical_encod, f"{os.path.join(self.output_path, self.store_file)}/cat_encod.joblib")
+				joblib.dump(categorical_encod, f"{os.path.join(self.output_path, self.folder_output)}/cat_encod.joblib")
 
 				# save fold as feather file
-				train_fold.to_feather(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/train_fold_{fold}.feather"))
-				test_fold.to_feather(os.path.join(f"{os.path.join(self.output_path, self.store_file)}/test_fold_{fold}.feather"))
+				train_fold.to_feather(os.path.join(f"{os.path.join(self.output_path, self.folder_output)}/train_fold_{fold}.feather"))
+				test_fold.to_feather(os.path.join(f"{os.path.join(self.output_path, self.folder_output)}/test_fold_{fold}.feather"))
 
 				logger.info(f">>> train fold {fold} save")
 				logger.info(f">>> test fold {fold} save")
@@ -303,7 +303,7 @@ class ReadFile:
 	
 	def train(self):
 		self._process_data()
-		with open(f"{os.path.join(os.path.join(self.output_path, self.store_file))}/features.json") as f:
+		with open(f"{os.path.join(os.path.join(self.output_path, self.folder_output))}/features.json") as f:
 			model_config = json.load(f)
 			bp = train_model(model_config)
 		predict_model(model_config, best_params=bp)

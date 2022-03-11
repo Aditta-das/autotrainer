@@ -114,7 +114,7 @@ def kaggle_submission(model_config, final_pred):
     # print(ans.shape)
     sub_df = pd.read_csv(model_config["submission_path"])
     sub_df[model_config["label"]] = ans
-    sub_df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission.csv', index=False)
+    sub_df.to_csv(f'{os.path.join(model_config["output_path"], model_config["folder_output"])}/submission.csv', index=False)
     logger.info(">>> Submission For Kaggle Is Prepared. Please Cross-check")
 
 def submission_test(model_config, sub_pred_values):
@@ -125,7 +125,7 @@ def submission_test(model_config, sub_pred_values):
     }
     df = pd.DataFrame.from_dict(data=d, orient='index').reset_index()
 
-    df.to_csv(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/submission_file.csv', index=False)
+    df.to_csv(f'{os.path.join(model_config["output_path"], model_config["folder_output"])}/submission_file.csv', index=False)
     logger.info(">>> Save Test Prediction")
 
 
@@ -143,8 +143,8 @@ def optimize(trial, clf_model, use_predict_proba, eval_metric, model_config):
     del params["early_stopping_rounds"]
 
     for fold in range(model_config["no_of_fold"]):
-        train_feather = pd.read_feather(os.path.join(model_config["output_path"], f"{model_config['store_file']}/train_fold_{fold}.feather"))
-        test_feather = pd.read_feather(os.path.join(model_config["output_path"], f"{model_config['store_file']}/test_fold_{fold}.feather"))
+        train_feather = pd.read_feather(os.path.join(model_config["output_path"], f"{model_config['folder_output']}/train_fold_{fold}.feather"))
+        test_feather = pd.read_feather(os.path.join(model_config["output_path"], f"{model_config['folder_output']}/test_fold_{fold}.feather"))
         xtrain = train_feather[model_config["features"]]
         xtest = test_feather[model_config["features"]]
 
@@ -207,7 +207,7 @@ def train_model(model_config):
         eval_metric = eval_metric,
         use_predict_proba = use_predict_proba
     )
-    db_path = os.path.join(model_config['output_path'], f"{model_config['store_file']}/params.db")
+    db_path = os.path.join(model_config['output_path'], f"{model_config['folder_output']}/params.db")
     study = optuna.create_study(
         direction=model_config['direction'],
         study_name=model_config["study_name"],
@@ -233,8 +233,8 @@ def predict_model(model_config, best_params):
 
     for fold in range(model_config["no_of_fold"]):
         logger.info(f">> Train and predict for fold : {fold}")
-        train_feather = pd.read_feather(os.path.join(model_config['output_path'], f"{model_config['store_file']}/train_fold_{fold}.feather"))
-        test_feather = pd.read_feather(os.path.join(model_config['output_path'], f"{model_config['store_file']}/test_fold_{fold}.feather"))
+        train_feather = pd.read_feather(os.path.join(model_config['output_path'], f"{model_config['folder_output']}/train_fold_{fold}.feather"))
+        test_feather = pd.read_feather(os.path.join(model_config['output_path'], f"{model_config['folder_output']}/test_fold_{fold}.feather"))
         xtrain = train_feather[model_config["features"]]
         xtest = test_feather[model_config["features"]]
 
@@ -242,7 +242,7 @@ def predict_model(model_config, best_params):
         ytest = test_feather[model_config["label"]].values
 
         if model_config["test_path"] is not None:
-            test_file = pd.read_feather(f'{os.path.join(model_config["output_path"], model_config["store_file"])}/test_file_{fold}.feather')
+            test_file = pd.read_feather(f'{os.path.join(model_config["output_path"], model_config["folder_output"])}/test_file_{fold}.feather')
             X_test = test_file[model_config["features"]]
             test_file["idx"] = np.arange(len(test_file))
 
